@@ -64,35 +64,50 @@ export function registerApiRoutes(app: any) {
 
   // UPDATE
   app.put("/api/posts/:id", async (req: any) => {
-    const authError = authMiddleware(req);
-    if (authError) return authError;
+  const authError = authMiddleware(req);
+  if (authError) return authError;
 
-    const { content } = await req.json();
-    const id = req.params.id;
+  const { content } = await req.json();
+  const id = req.params.id;
+  const userId = req.user.userId;
 
-    const result = await db
-      .update(posts)
-      .set({ content })
-      .where(eq(posts.id, id))
-      .returning();
+  const result = await db
+    .update(posts)
+    .set({ content })
+    .where(eq(posts.id, id))
+    .returning();
 
-    return Response.json(result);
-  });
+  if (!result.length || result[0].userId !== userId) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  return Response.json(result);
+});
 
 
   // DELETE
   app.delete("/api/posts/:id", async (req: any) => {
-    const authError = authMiddleware(req);
-    if (authError) return authError;
+  const authError = authMiddleware(req);
+  if (authError) return authError;
 
-    const id = req.params.id;
+  const id = req.params.id;
+  const userId = req.user.userId;
 
-    const result = await db
-      .delete(posts)
-      .where(eq(posts.id, id))
-      .returning();
+  const post = await db
+    .select()
+    .from(posts)
+    .where(eq(posts.id, id));
 
-    return Response.json(result);
-  });
+  if (!post.length || post[0].userId !== userId) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  const result = await db
+    .delete(posts)
+    .where(eq(posts.id, id))
+    .returning();
+
+  return Response.json(result);
+});
 
 }
