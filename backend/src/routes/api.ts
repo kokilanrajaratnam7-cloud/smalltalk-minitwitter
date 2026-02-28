@@ -1,6 +1,7 @@
 import { db } from "../db/database";
 import { posts } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { register, login } from "../auth";
 
 export function registerApiRoutes(app: any) {
 
@@ -48,3 +49,19 @@ export function registerApiRoutes(app: any) {
     return Response.json(result);
   });
 }
+
+
+
+// REGISTER
+app.post("/api/register", async (req: any) => {
+  const { email, password } = await req.json();
+  const result = await register(email, password);
+  return Response.json(result);
+});
+
+// LOGIN
+app.post("/api/login", async (req: any) => {
+  const { email, password } = await req.json();
+  const result = await login(email, password);
+  return Response.json(result);
+});
