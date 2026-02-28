@@ -1,38 +1,66 @@
-import { db } from "./db/database";
-import { users } from "./db/schema";
+import { Router } from "express";
+import bcrypt from "bcrypt";
+import { db } from "./db/database.ts";
+import { usersTable } from "./db/schema.ts";
 import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "secret";
+const router = Router();
 
-export async function register(email: string, password: string) {
-  const hashed = await bcrypt.hash(password, 10);
+router.post("/register", async (req, res) => {
+    const { username, password } = req.body;
 
-  return db.insert(users)
-    .values({ email, password: hashed })
-    .returning();
-}
+    if (!username || !password) {
+        return res.status(400).send({
+            error: "Username and password required",
+        });
+    }
 
-export async function login(email: string, password: string) {
-  const user = await db.select()
-    .from(users)
-    .where(eq(users.email, email));
+    const passwordHash = await bcrypt.hash(password, 10);
 
-  if (!user.length) {
-    throw new Error("User not found");
-  }
+    const newUser = await db
+        .insert(usersTable)
+        .values({ username, password: passwordHash })
+        .returning();
 
-  const valid = await bcrypt.compare(password, user[0].password);
-  if (!valid) {
-    throw new Error("Invalid password");
-  }
+    res.send({ id: newUser[0]!.id, username: newUser[0]!.username });
+});
 
-  const token = jwt.sign(
-    { userId: user[0].id },
-    JWT_SECRET,
-    { expiresIn: "1h" }
-  );
+router.post("/login", async (req, res) => {
+    const { username, password } = req.body;
 
-  return { token };
-}
+    if (!username || !password) {
+        return res.status(400).send({
+            error: "Username and password required",
+        });
+    }
+
+    const existingUsers = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.username, username));
+
+    if (existingUsers.length === 0) {
+        return res.status(401).send({ error: "Invalid username or password." });
+    }
+
+    const existingUser = existingUsers[0]!;
+
+    const passwordMatch = await bcrypt.compare(password, existingUser.password);
+
+    if (!passwordMatch) {
+        return res.status(401).send({ error: "Invalid username or password." });
+    }
+
+    const jwtSecret = process.env.JWT_SECRET || "supersecret123";
+
+    const token = jwt.sign(
+        { id: existingUser.id, username: existingUser.username },
+        jwtSecret,
+        { expiresIn: "1h" },
+    );
+
+    res.send(token);
+});
+
+export default router;

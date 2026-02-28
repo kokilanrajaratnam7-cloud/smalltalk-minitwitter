@@ -1,113 +1,175 @@
-import { db } from "../db/database";
-import { posts } from "../db/schema";
+import { type Express, type Request, type Response } from "express";
 import { eq } from "drizzle-orm";
+import { Ollama } from "ollama";
+import { db } from "../db/database";
+import { postsTable, usersTable } from "../db/schema";
+import authMiddleware from "../middleware/auth-middleware";
+import authRoutes from "../auth";
 
-import { register, login } from "../auth";
-import { authMiddleware } from "../middleware/auth-middleware";
+const ollamaClient = new Ollama({
+  host: "http://ollama:11434",
+});
 
-export function registerApiRoutes(app: any) {
+/*
+  STRICT + FAST hate speech checker
+*/
+async function checkHateSpeech(content: string): Promise<boolean> {
+  const lower = content.toLowerCase();
 
-  // -------------------------
-  // AUTH ROUTES (NO PROTECTION)
-  // -------------------------
+  //Strong keyword filter (instant)
+  const bannedWords = [
+    "kill",
+    "murder",
+    "rape",
+    "sex",
+    "porn",
+    "racist",
+    "hate",
+    "terror",
+    "violence",
+  ];
 
-  app.post("/api/register", async (req: any) => {
-    try {
-      const { email, password } = await req.json();
-      const result = await register(email, password);
-      return Response.json(result);
-    } catch (err: any) {
-      return new Response(err.message, { status: 400 });
+  for (const word of bannedWords) {
+    if (lower.includes(word)) {
+      return true;
     }
+  }
+
+  // 🟡 Secondary AI check (optional)
+  try {
+    const response = await ollamaClient.chat({
+      model: "tinyllama",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a strict content moderator. Answer ONLY YES or NO. YES if harmful or inappropriate.",
+        },
+        { role: "user", content }
+      ],
+      options: {
+        temperature: 0,
+        num_predict: 5,
+      },
+    });
+
+    const answer = response.message.content.trim().toUpperCase();
+    return answer.startsWith("YES");
+  } catch (error) {
+    return false;
+  }
+}
+
+export const initializeAPI = (app: Express) => {
+  app.use("/auth", authRoutes);
+  app.use(authMiddleware);
+
+
+  // GET all posts
+  app.get("/posts", async (req: Request, res: Response) => {
+    const posts = await db
+      .select({
+        id: postsTable.id,
+        content: postsTable.content,
+        userId: postsTable.userId,
+        username: usersTable.username,
+      })
+      .from(postsTable)
+      .leftJoin(usersTable, eq(postsTable.userId, usersTable.id));
+
+    res.send(posts);
   });
 
-  app.post("/api/login", async (req: any) => {
-    try {
-      const { email, password } = await req.json();
-      const result = await login(email, password);
-      return Response.json(result);
-    } catch (err: any) {
-      return new Response(err.message, { status: 400 });
+  // POST new post
+  app.post("/posts", async (req: Request, res: Response) => {
+    if (!req.user) {
+      return res.status(401).send({ error: "Unauthorized" });
     }
-  });
 
+    const content = req.body.content;
 
-  // -------------------------
-  // POSTS ROUTES (PROTECTED)
-  // -------------------------
+    if (!content || content.length < 1) {
+      return res.status(400).send({ error: "Content required" });
+    }
 
-  // CREATE
-  app.post("/api/posts", async (req: any) => {
-    const authError = authMiddleware(req);
-    if (authError) return authError;
+    // AI moderation
+    const containsHate = await checkHateSpeech(content);
 
-    const { content } = await req.json();
+    if (containsHate) {
+      return res.status(400).send({
+        error: "Post rejected: Hate speech detected",
+      });
+    }
 
-    const result = await db
-      .insert(posts)
-      .values({ content })
+    // Save if safe
+    const newPost = await db
+      .insert(postsTable)
+      .values({
+        content,
+        userId: req.user.id,
+      })
       .returning();
 
-    return Response.json(result);
+    res.send(newPost[0]);
   });
 
+  // PUT update post
+  app.put("/posts/:id", async (req: Request, res: Response) => {
+    if (!req.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
 
-  // READ
-  app.get("/api/posts", async (req: any) => {
-    const authError = authMiddleware(req);
-    if (authError) return authError;
+    const id = Number(req.params.id);
 
-    const result = await db.select().from(posts);
-    return Response.json(result);
+    const existingPosts = await db
+      .select()
+      .from(postsTable)
+      .where(eq(postsTable.id, id));
+
+    if (existingPosts.length === 0) {
+      return res.status(404).send("Post not found");
+    }
+
+    const post = existingPosts[0]!;
+
+    if (post.userId !== req.user.id) {
+      return res.status(403).send({ error: "Forbidden" });
+    }
+
+    const updatedPost = await db
+      .update(postsTable)
+      .set({ content: req.body.content })
+      .where(eq(postsTable.id, id))
+      .returning();
+
+    res.send(updatedPost[0]);
   });
 
+  // DELETE post
+  app.delete("/posts/:id", async (req: Request, res: Response) => {
+    if (!req.user) {
+      return res.status(401).send({ error: "Unauthorized" });
+    }
 
-  // UPDATE
-  app.put("/api/posts/:id", async (req: any) => {
-  const authError = authMiddleware(req);
-  if (authError) return authError;
+    const id = Number(req.params.id);
 
-  const { content } = await req.json();
-  const id = req.params.id;
-  const userId = req.user.userId;
+    const existingPosts = await db
+      .select()
+      .from(postsTable)
+      .where(eq(postsTable.id, id));
 
-  const result = await db
-    .update(posts)
-    .set({ content })
-    .where(eq(posts.id, id))
-    .returning();
+    if (existingPosts.length === 0) {
+      return res.status(404).send("Post not found");
+    }
 
-  if (!result.length || result[0].userId !== userId) {
-    return new Response("Forbidden", { status: 403 });
-  }
+    const post = existingPosts[0]!;
 
-  return Response.json(result);
-});
+    if (post.userId !== req.user.id) {
+      return res.status(403).send({ error: "Forbidden" });
+    }
 
+    await db.delete(postsTable).where(eq(postsTable.id, id));
 
-  // DELETE
-  app.delete("/api/posts/:id", async (req: any) => {
-  const authError = authMiddleware(req);
-  if (authError) return authError;
-
-  const id = req.params.id;
-  const userId = req.user.userId;
-
-  const post = await db
-    .select()
-    .from(posts)
-    .where(eq(posts.id, id));
-
-  if (!post.length || post[0].userId !== userId) {
-    return new Response("Forbidden", { status: 403 });
-  }
-
-  const result = await db
-    .delete(posts)
-    .where(eq(posts.id, id))
-    .returning();
-
-  return Response.json(result);
-});
-
-}
+    res.send({ id });
+  });
+};
