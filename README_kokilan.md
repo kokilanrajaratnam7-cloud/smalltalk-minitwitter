@@ -102,3 +102,7 @@ bunx drizzle-kit studio
 
 
 docker exec -it ollama ollama pull tinyllama
+
+docker exec -it ollama sh
+
+ollama pull llama3
