@@ -104,7 +104,7 @@ async function backgroundModeration(postId: number) {
       await db
         .update(postsTable)
         .set({
-          content: "****",
+          content: "[This post was removed due to policy violation]",
           status: "flagged",
           sentiment: analysis.sentiment
         })
