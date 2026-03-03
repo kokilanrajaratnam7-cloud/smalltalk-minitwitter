@@ -5,6 +5,9 @@ import { db } from "../db/database";
 import { postsTable, usersTable } from "../db/schema";
 import authMiddleware from "../middleware/auth-middleware";
 import authRoutes from "../auth";
+import { postQueue } from "../message-broker";
+import { getPostsCache, setPostsCache } from "../services/cache";
+import { invalidatePostsCache } from "../services/cache";
 
 const ollamaClient = new Ollama({
   host: "http://ollama:11434",
@@ -13,7 +16,7 @@ const ollamaClient = new Ollama({
 /* =========================================
    ANALYZE CONTENT (Moderation + Sentiment)
 ========================================= */
-async function analyzeContent(content: string): Promise<{
+export async function analyzeContent(content: string): Promise<{
   isHate: boolean;
   sentiment: "positive" | "neutral" | "negative";
 }> {
@@ -40,16 +43,16 @@ Flag should be true ONLY if the text contains:
 - sexual explicit content
 
 No explanations. No extra text. Only JSON.
-`
+`,
         },
         {
           role: "user",
-          content
-        }
+          content,
+        },
       ],
       options: {
         temperature: 0,
-      }
+      },
     });
 
     const raw = response.message.content.trim();
@@ -62,26 +65,24 @@ No explanations. No extra text. Only JSON.
       console.error("JSON parse error:", raw);
       return {
         isHate: false,
-        sentiment: "neutral"
+        sentiment: "neutral",
       };
     }
 
     return {
       isHate: parsed.flag === true,
-      sentiment:
-        parsed.sentiment === "positive" ||
-        parsed.sentiment === "negative"
-          ? parsed.sentiment
-          : "neutral"
+      sentiment: parsed.sentiment === "positive" ||
+          parsed.sentiment === "negative"
+        ? parsed.sentiment
+        : "neutral",
     };
-
   } catch (error) {
     console.error("AI failure:", error);
 
     // NEVER punish user if AI fails
     return {
       isHate: false,
-      sentiment: "neutral"
+      sentiment: "neutral",
     };
   }
 }
@@ -106,7 +107,7 @@ async function backgroundModeration(postId: number) {
         .set({
           content: "[This post was removed due to policy violation]",
           status: "flagged",
-          sentiment: analysis.sentiment
+          sentiment: analysis.sentiment,
         })
         .where(eq(postsTable.id, postId));
 
@@ -116,18 +117,17 @@ async function backgroundModeration(postId: number) {
         .where(eq(usersTable.id, post.userId));
 
       console.log(
-        `🚨 ALERT: Hate speech detected | User: ${user?.username} | PostID: ${postId}`
+        `🚨 ALERT: Hate speech detected | User: ${user?.username} | PostID: ${postId}`,
       );
     } else {
       await db
         .update(postsTable)
         .set({
           status: "clean",
-          sentiment: analysis.sentiment
+          sentiment: analysis.sentiment,
         })
         .where(eq(postsTable.id, postId));
     }
-
   } catch (error) {
     console.error("Background moderation error:", error);
   }
@@ -142,6 +142,12 @@ export const initializeAPI = (app: Express) => {
 
   // GET POSTS
   app.get("/posts", async (_req: Request, res: Response) => {
+    const cached = await getPostsCache();
+
+    if (cached) {
+      return res.send(cached);
+    }
+
     const posts = await db
       .select({
         id: postsTable.id,
@@ -149,10 +155,12 @@ export const initializeAPI = (app: Express) => {
         userId: postsTable.userId,
         status: postsTable.status,
         sentiment: postsTable.sentiment,
-        username: usersTable.username
+        username: usersTable.username,
       })
       .from(postsTable)
       .leftJoin(usersTable, eq(postsTable.userId, usersTable.id));
+
+    await setPostsCache(posts);
 
     res.send(posts);
   });
@@ -175,19 +183,20 @@ export const initializeAPI = (app: Express) => {
         content,
         userId: req.user.id,
         status: "pending",
-        sentiment: "unknown"
+        sentiment: "unknown",
       })
       .returning();
-
+      
     if (!createdPost) {
       return res.status(500).send({ error: "Post creation failed" });
     }
 
+    await invalidatePostsCache();
     res.send(createdPost);
 
-    setTimeout(() => {
-      backgroundModeration(createdPost.id);
-    }, 100);
+    await postQueue.add("analyzePost", {
+      postId: createdPost.id,
+    });
   });
 
   // UPDATE POST
@@ -216,7 +225,7 @@ export const initializeAPI = (app: Express) => {
       .set({
         content: req.body.content,
         status: "pending",
-        sentiment: "unknown"
+        sentiment: "unknown",
       })
       .where(eq(postsTable.id, id))
       .returning();
@@ -225,10 +234,9 @@ export const initializeAPI = (app: Express) => {
       return res.status(500).send({ error: "Update failed" });
     }
 
-    setTimeout(() => {
-      backgroundModeration(id);
-    }, 100);
+    await postQueue.add("analyzePost", { postId: updatedPost.id });
 
+    await invalidatePostsCache();
     res.send(updatedPost);
   });
 
@@ -255,6 +263,7 @@ export const initializeAPI = (app: Express) => {
 
     await db.delete(postsTable).where(eq(postsTable.id, id));
 
+    await invalidatePostsCache();
     res.send({ id });
   });
 };

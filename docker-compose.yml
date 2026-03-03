@@ -16,6 +16,13 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+
   minitwitter-1:
     build: 
       context: ./backend
@@ -25,9 +32,14 @@ services:
       - "3000:3000"
     environment:
       - DATABASE_URL=postgresql://postgres:supersecret123@postgres:5432/minitwitter
+      - REDIS_HOST=redis
+      - OLLAMA_HOST=http://ollama:11434
+      - SERVER_ROLE=api
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   minitwitter-2:
     build: 
@@ -38,9 +50,15 @@ services:
       - "3002:3000"
     environment:
       - DATABASE_URL=postgresql://postgres:supersecret123@postgres:5432/minitwitter
+      - REDIS_HOST=redis
+      - OLLAMA_HOST=http://ollama:11434
+      - SERVER_ROLE=api
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+
 
   load-balancer:
     image: nginx
@@ -62,3 +80,19 @@ services:
     - ./docker-data/ollama:/root/.ollama
     environment:
       - OLLAMA_KEEP_ALIVE=24
+    
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://postgres:supersecret123@postgres:5432/minitwitter
+      - REDIS_HOST=redis
+      - OLLAMA_HOST=http://ollama:11434
+      - SERVER_ROLE=worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started

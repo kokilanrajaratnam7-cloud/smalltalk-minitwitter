@@ -1,14 +1,29 @@
 import express from "express";
 import { initializeAPI } from "./routes/api";
-import cors from 'cors'
+import cors from "cors";
+import { initializeMessageBroker } from "./message-broker";
 
 const port = 3000;
 const app = express();
+
 app.use(express.json());
-app.use(cors({ origin: ["http://localhost:5173"], credentials: true }))
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+  })
+);
 
-initializeAPI(app);
+// Always initialize message broker
+initializeMessageBroker();
 
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-});
+// Only start HTTP server if role is "api"
+if (process.env.SERVER_ROLE === "api") {
+  initializeAPI(app);
+
+  app.listen(port, () => {
+    console.log(`API Server running on http://localhost:${port}`);
+  });
+} else {
+  console.log("Worker role active — HTTP server not started.");
+}
