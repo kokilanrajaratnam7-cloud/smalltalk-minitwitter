@@ -35,6 +35,8 @@ services:
       - REDIS_HOST=redis
       - OLLAMA_HOST=http://ollama:11434
       - SERVER_ROLE=api
+      - ENABLE_RATE_LIMIT=false
+      - LOG_LEVEL=info
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +55,8 @@ services:
       - REDIS_HOST=redis
       - OLLAMA_HOST=http://ollama:11434
       - SERVER_ROLE=api
+      - ENABLE_RATE_LIMIT=false
+      - LOG_LEVEL=info
     depends_on:
       postgres:
         condition: service_healthy

@@ -8,6 +8,7 @@ import authRoutes from "../auth";
 import { postQueue } from "../message-broker";
 import { getPostsCache, setPostsCache } from "../services/cache";
 import { invalidatePostsCache } from "../services/cache";
+import logger from "../utils/logger";
 
 const ollamaClient = new Ollama({
   host: "http://ollama:11434",
@@ -56,13 +57,13 @@ No explanations. No extra text. Only JSON.
     });
 
     const raw = response.message.content.trim();
-    console.log("AI RAW RESPONSE:", raw);
+    logger.debug({ raw }, "AI RAW RESPONSE");
 
     let parsed;
     try {
       parsed = JSON.parse(raw);
     } catch (parseError) {
-      console.error("JSON parse error:", raw);
+      logger.error({ raw }, "JSON parse error");
       return {
         isHate: false,
         sentiment: "neutral",
@@ -77,7 +78,7 @@ No explanations. No extra text. Only JSON.
         : "neutral",
     };
   } catch (error) {
-    console.error("AI failure:", error);
+    logger.error({ error }, "AI failure");
 
     // NEVER punish user if AI fails
     return {
@@ -116,9 +117,10 @@ async function backgroundModeration(postId: number) {
         .from(usersTable)
         .where(eq(usersTable.id, post.userId));
 
-      console.log(
-        `🚨 ALERT: Hate speech detected | User: ${user?.username} | PostID: ${postId}`,
-      );
+      logger.warn(
+        { user: user?.username, postId },
+        "Hate speech detected"
+    );
     } else {
       await db
         .update(postsTable)
@@ -129,7 +131,7 @@ async function backgroundModeration(postId: number) {
         .where(eq(postsTable.id, postId));
     }
   } catch (error) {
-    console.error("Background moderation error:", error);
+    logger.error({ error }, "Background moderation error");
   }
 }
 
@@ -145,6 +147,7 @@ export const initializeAPI = (app: Express) => {
     const cached = await getPostsCache();
 
     if (cached) {
+      logger.debug("Returning cached posts");
       return res.send(cached);
     }
 
@@ -194,7 +197,7 @@ export const initializeAPI = (app: Express) => {
     await invalidatePostsCache();
     res.send(createdPost);
 
-    await postQueue.add("analyzePost", {
+    postQueue.add("analyzePost", {
       postId: createdPost.id,
     });
   });
@@ -234,7 +237,7 @@ export const initializeAPI = (app: Express) => {
       return res.status(500).send({ error: "Update failed" });
     }
 
-    await postQueue.add("analyzePost", { postId: updatedPost.id });
+    postQueue.add("analyzePost", { postId: updatedPost.id });
 
     await invalidatePostsCache();
     res.send(updatedPost);
