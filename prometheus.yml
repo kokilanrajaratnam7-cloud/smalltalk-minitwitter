@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "minitwitter-api"
+    static_configs:
+      - targets: ["minitwitter-1:3000", "minitwitter-2:3000"]

@@ -1,27 +1,48 @@
-import rateLimit from "express-rate-limit";
 import express from "express";
-import { initializeAPI } from "./routes/api";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
+import promMid from "express-prometheus-middleware";
+
+import { initializeAPI } from "./routes/api";
 import { initializeMessageBroker } from "./message-broker";
 import logger from "./utils/logger";
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per window
-  message: {
-    error: "Too many requests. Please try again later."
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
 
 const port = 3000;
 const app = express();
 
+/* =========================================
+   MIDDLEWARE
+========================================= */
+
+// JSON parsing
 app.use(express.json());
+
+// Prometheus metrics endpoint
+app.use(
+  promMid({
+    metricsPath: "/metrics",
+    collectDefaultMetrics: false,
+    requestDurationBuckets: [0.1, 0.3, 0.5, 1, 1.5],
+  })
+);
+
+// Optional Rate Limiter (controlled via ENV)
 if (process.env.ENABLE_RATE_LIMIT === "true") {
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: {
+      error: "Too many requests. Please try again later.",
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
   app.use(limiter);
+  logger.info("Rate limiting enabled");
 }
+
+// CORS
 app.use(
   cors({
     origin: ["http://localhost:5173"],
@@ -29,10 +50,16 @@ app.use(
   })
 );
 
-// Always initialize message broker
+/* =========================================
+   MESSAGE BROKER (Queue)
+========================================= */
+
 initializeMessageBroker();
 
-// Only start HTTP server if role is "api"
+/* =========================================
+   ROLE-BASED SERVER START
+========================================= */
+
 if (process.env.SERVER_ROLE === "api") {
   initializeAPI(app);
 

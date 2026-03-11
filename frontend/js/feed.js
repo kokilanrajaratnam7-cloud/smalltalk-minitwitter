@@ -63,7 +63,7 @@ async function loadPosts() {
 
     if (myFlaggedPosts.length > 0) {
       messageDiv.innerText =
-        "⚠ One of your posts was flagged for inappropriate content. Please edit or delete it.";
+        "One of your posts was flagged for inappropriate content. Please edit or delete it.";
     } else {
       messageDiv.innerText = "";
     }
