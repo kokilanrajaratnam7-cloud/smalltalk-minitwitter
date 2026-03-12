@@ -93,6 +93,9 @@ async function loadPosts() {
         statusBadge = `<div style="color:red;font-size:12px;">Flagged by moderation</div>`;
       }
 
+      const likesCount = post.likesCount ?? 0;
+      const likedByUser = post.likedByUser ?? false;
+      
       card.innerHTML = `
         <div class="post-head">
           <div class="post-head-left">
@@ -103,6 +106,13 @@ async function loadPosts() {
           ${actions}
         </div>
         <div class="post-body">${post.content}</div>
+        <div class="post-footer">
+          <button class="like-btn" ${likedByUser ? "liked" : ""}"
+              onclick="toggleLike(${post.id}, this)">
+            <span class="heart">${likedByUser ? "♥" : "♡"}</span>
+            <span class="like-count">${likesCount}</span>
+          </button>
+        </div>
       `;
 
       container.appendChild(card);
@@ -256,4 +266,25 @@ async function deletePost(postId) {
 function logout() {
   localStorage.removeItem("token");
   window.location.href = "login.html";
+}
+
+/* ===============================
+   TOGGLE LIKE
+================================= */
+function toggleLike(postId, button){
+
+  const heart = button.querySelector(".heart");
+  const counter = button.querySelector(".like-count");
+
+  let count = parseInt(counter.innerText) || 0;
+
+  if(button.classList.contains("liked")){
+      button.classList.remove("liked");
+      heart.innerText = "♡";
+      counter.innerText = count - 1;
+  }else{
+      button.classList.add("liked");
+      heart.innerText = "♥";
+      counter.innerText = count + 1;
+  }
 }
