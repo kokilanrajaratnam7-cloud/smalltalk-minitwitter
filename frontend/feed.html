@@ -24,7 +24,7 @@
           <div class="feed-subtitle">Short thoughts. Real conversations.</div>
         </div>
       </div>
-
+    <div id ="welcomeMsg" class="welcome-msg"></div>
       <div style="display:flex; gap:10px;">
         <button id="logoutBtn" class="post-btn post-btn-light">
           Logout
@@ -34,15 +34,29 @@
 
     <!-- ACTION BAR -->
     <div class="feed-actionbar">
-      <div class="create-box">
-        <textarea id="postInput" placeholder="What's on your mind?"></textarea>
-        <button id="submitPostBtn" class="feed-create-btn">Post</button>
+
+      <div style="width:100%; display:flex; flex-direction:column; gap:10px;">
+
+        <!-- CREATE POST -->
+        <div class="create-box">
+          <textarea id="postInput" placeholder="What's on your mind?"></textarea>
+          <button id="submitPostBtn" class="feed-create-btn">Post</button>
+        </div>
+
+        <!-- FILTER BAR -->
+        <div class="feed-filter">
+          <button id="filterAll" class="filter-btn active">All</button>
+          <button id="filterMine" class="filter-btn">Mine</button>
+        </div>
+
       </div>
+
     </div>
 
     <!-- CONTENT -->
     <div class="feed-content">
       <div id="feedMessage" class="feed-message"></div>
+
       <div class="posts" id="postsContainer">
         <!-- Posts will be inserted here dynamically -->
       </div>

@@ -1,25 +1,22 @@
-/* Your style.css sets body as flex center with height 100vh (login page) :contentReference[oaicite:3]{index=3}
-   For feed, we need scrolling — so we override it here. */
 .feed-body {
   background: #f6f5f7;
   margin: 0;
   min-height: 100vh;
 
   display: flex;
-  justify-content: center;   /* horizontal center */
-  align-items: center;       /* vertical center */
+  justify-content: center;
+  align-items: center;
 
   font-family: 'Montserrat', sans-serif;
 }
 
-
-/* Reuse your .container look (width, radius, shadow) :contentReference[oaicite:6]{index=6} */
+/* Reuse your container look */
 .feed-container{
   min-height: 680px;
-  overflow: hidden; /* keeps bars clean */
+  overflow: hidden;
 }
 
-/* TOP BLUE BAR (same Smalltalk blue you use in overlay/buttons) :contentReference[oaicite:7]{index=7} :contentReference[oaicite:8]{index=8} */
+/* TOP BAR */
 .feed-topbar{
   height: 90px;
   background: #171f4e;
@@ -75,18 +72,17 @@
   margin: 2px 0;
 }
 
-/* SECOND BLUE BAR (ONLY CREATE) */
+/* SECOND BLUE BAR (CREATE + FILTER) */
 .feed-actionbar{
-  height: 90px;
+  min-height: 90px;
   background: #171f4e;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 22px;
+  padding: 10px 22px;
 }
 
 .feed-create-btn{
-  /* uses your global button base from style.css (rounded, uppercase, bold) :contentReference[oaicite:9]{index=9} */
   background: #fff;
   color: #171f4e;
   border: 1px solid #fff;
@@ -97,7 +93,7 @@
 .feed-content{
   background: #f6f5f7;
   padding: 18px;
-  height: calc(680px - 180px); /* container min-height minus 2 bars */
+  height: calc(680px - 180px);
   overflow-y: auto;
 }
 
@@ -139,7 +135,7 @@
   line-height: 1.45;
 }
 
-/* Edit/Delete buttons inside post */
+/* Edit/Delete buttons */
 .post-actions{
   display: flex;
   gap: 8px;
@@ -167,6 +163,7 @@
   color: #fff;
 }
 
+/* Container width */
 .feed-container {
   width: 850px;
   max-width: 95%;
@@ -186,7 +183,7 @@
 }
 
 #postInput {
-  flex: 1;                /* takes full width */
+  flex: 1;
   resize: none;
   height: 50px;
   padding: 10px 14px;
@@ -219,10 +216,12 @@
   color: #555;
 }
 
+/* POST FOOTER */
 .post-footer{
   margin-top:12px;
 }
 
+/* LIKE BUTTON */
 .like-btn{
   background:none;
   border:none;
@@ -233,10 +232,13 @@
   font-size:15px;
   color:#555;
   font-weight:600;
+  padding:6px 10px;
+  border-radius:20px;
 }
 
 .like-btn:hover{
   color:#e0245e;
+  background:#ffeef2;
 }
 
 .heart{
@@ -255,11 +257,30 @@
   100%{transform:scale(1)}
 }
 
-.like-btn{
-  padding:6px 10px;
-  border-radius:20px;
+/* FILTER */
+.feed-filter{
+  display:flex;
+  gap:10px;
+  margin-top:8px;
 }
 
-.like-btn:hover{
-  background:#ffeef2;
+.filter-btn{
+  padding:8px 18px;
+  border-radius:20px;
+  border:2px solid white;
+  background:transparent;
+  color:white;
+  cursor:pointer;
+  font-weight:700;
+  font-size:12px;
+}
+
+.filter-btn:hover{
+  background:white;
+  color:#171f4e;
+}
+
+.filter-btn.active{
+  background:white;
+  color:#171f4e;
 }

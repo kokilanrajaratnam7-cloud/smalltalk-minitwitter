@@ -1,5 +1,7 @@
 let isEditing = false;
 let cachedPostsJSON = "";
+let currentFilter = "all";
+let lastFilter = "all";
 
 if (!localStorage.getItem("token")) {
   window.location.href = "login.html";
@@ -10,7 +12,19 @@ const API_BASE = "";
 window.addEventListener("DOMContentLoaded", () => {
   loadPosts();
 
-  setInterval(loadPosts, 10000); // Auto refresh every 2 seconds
+  setInterval(loadPosts, 10000);
+
+  document.getElementById("filterAll").addEventListener("click", () => {
+    currentFilter = "all";
+    setActiveFilter("filterAll");
+    loadPosts();
+  });
+
+  document.getElementById("filterMine").addEventListener("click", () => {
+    currentFilter = "mine";
+    setActiveFilter("filterMine");
+    loadPosts();
+  });
 
   document.getElementById("submitPostBtn")
     .addEventListener("click", createPost);
@@ -42,20 +56,20 @@ async function loadPosts() {
 
     const newJSON = JSON.stringify(posts);
 
-    // If nothing changed → do nothing
-    if (newJSON === cachedPostsJSON) {
+    if (newJSON === cachedPostsJSON && currentFilter === lastFilter) {
       return;
     }
 
-    // Save new version
     cachedPostsJSON = newJSON;
-
+    lastFilter = currentFilter;
+    
     const container = document.getElementById("postsContainer");
     const messageDiv = document.getElementById("feedMessage");
 
     container.innerHTML = "";
 
     const loggedInUserId = getUserIdFromToken();
+    const loggedInUsername = getUsernameFromToken();  
 
     const myFlaggedPosts = posts.filter(
       p => Number(p.userId) === loggedInUserId && p.status === "flagged"
@@ -68,7 +82,25 @@ async function loadPosts() {
       messageDiv.innerText = "";
     }
 
-    posts.forEach(post => {
+    if (loggedInUsername) {
+      document.getElementById("welcomeMsg").innerText = `Welcome, @${loggedInUsername}!`;
+    }
+
+    /* ===============================
+       FILTER LOGIC
+    ================================= */
+    let filteredPosts = posts;
+
+    if (currentFilter === "mine") {
+      filteredPosts = posts.filter(
+        post => Number(post.userId) === loggedInUserId
+      );
+    }
+
+    /* ===============================
+       RENDER POSTS
+    ================================= */
+    filteredPosts.forEach(post => {
       const card = document.createElement("div");
       card.classList.add("post-card");
 
@@ -95,7 +127,7 @@ async function loadPosts() {
 
       const likesCount = post.likesCount ?? 0;
       const likedByUser = post.likedByUser ?? false;
-      
+
       card.innerHTML = `
         <div class="post-head">
           <div class="post-head-left">
@@ -105,9 +137,11 @@ async function loadPosts() {
           </div>
           ${actions}
         </div>
+
         <div class="post-body">${post.content}</div>
+
         <div class="post-footer">
-          <button class="like-btn" ${likedByUser ? "liked" : ""}"
+          <button class="like-btn ${likedByUser ? "liked" : ""}"
               onclick="toggleLike(${post.id}, this)">
             <span class="heart">${likedByUser ? "♥" : "♡"}</span>
             <span class="like-count">${likesCount}</span>
@@ -287,4 +321,22 @@ function toggleLike(postId, button){
       heart.innerText = "♥";
       counter.innerText = count + 1;
   }
+}
+
+/* ===============================
+   FILTER BUTTON UI
+================================= */
+function setActiveFilter(activeId){
+  document.getElementById("filterAll").classList.remove("active");
+  document.getElementById("filterMine").classList.remove("active");
+
+  document.getElementById(activeId).classList.add("active");
+}
+
+function getUsernameFromToken() {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+
+  const payload = JSON.parse(atob(token.split(".")[1]));
+  return payload.username;
 }
