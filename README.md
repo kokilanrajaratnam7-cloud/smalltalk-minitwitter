@@ -1,4 +1,42 @@
 # Microblogging Plattform – Transferarbeit
+
+                                    ┌──────────────────────┐
+                                    │        USER          │
+                                    │   Browser / Client   │
+                                    └──────────┬───────────┘
+                                               │
+                                               ▼
+                                    ┌──────────────────────┐
+                                    │       FRONTEND       │
+                                    │   HTML / CSS / JS    │
+                                    └──────────┬───────────┘
+                                               │ API Calls
+                                               ▼
+                                    ┌──────────────────────┐
+                                    │  NGINX REVERSE PROXY │
+                                    │    Load Balancer     |
+                                    |      container       |
+                                    └───────┬─────┬────────┘
+                                            │     │
+                                            ▼     ▼
+                              ┌────────────────┐ ┌────────────────┐
+                              │  Minitwitter 1 │ │  Minitwitter 2 │
+                              │  Bun + TS API  │ │  Bun + TS API  │
+                              └────────┬───────┘ └────────┬───────┘
+                                       │                  │
+                            ┌──────────┴──────────┐ ┌─────┴─────────┐
+                            ▼                     ▼ ▼               ▼
+                    ┌───────────────┐     ┌───────────────┐   ┌───────────────┐
+                    │  PostgreSQL   │     │     Redis     │   │  AI Moderation│
+                    │   Database    │     │     Cache     │   │     Ollama    │
+                    └───────────────┘     └───────────────┘   └───────────────┘
+
+
+                            ┌───────────────────────────────┐
+                            │        MONITORING             │
+                            │   Prometheus → Grafana        │
+                            └───────────────────────────────┘
+
 ## 1. Ausgangslage
 
 In diesem Projekt wurde eine einfache Microblogging-Plattform entwickelt.
