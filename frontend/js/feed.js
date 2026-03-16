@@ -222,7 +222,7 @@ function editPost(postId) {
     <button class="post-btn post-btn-light" onclick="saveEdit(${postId})">
       Save
     </button>
-    <button class="post-btn post-btn-danger" onclick="cancelEdit()">
+    <button class="post-btn post-btn-danger" onclick="cancelEdit(${postId})">
       Cancel
     </button>
   `;
@@ -266,8 +266,9 @@ async function saveEdit(postId) {
 /* ===============================
    CANCEL EDIT
 ================================= */
-function cancelEdit() {
+function cancelEdit(postId) {
   isEditing = false;
+  cachedPostsJSON = "";
   loadPosts();
 }
 
