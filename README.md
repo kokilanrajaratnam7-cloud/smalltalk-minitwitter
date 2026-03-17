@@ -183,6 +183,8 @@ http://localhost
 
 - Push schema: bunx drizzle-kit push
 - Open Drizzle Studio: bunx drizzle-kit studio
+- env file - DATABASE_URL=postgresql://postgres:supersecret123@localhost:5432/minitwitter
+             JWT_SECRET=mysupersecretkey
 
 ## Ollama 
 
